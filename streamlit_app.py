@@ -1,167 +1,196 @@
 import streamlit as st
+import sqlite3
 
-# Set page config
-st.set_page_config(page_title="Vengateswaran Arunachalam's Resume", layout="wide")
+# Function to create a new SQLite3 database and table for blog posts
+def create_database():
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS posts
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 title TEXT NOT NULL,
+                 content TEXT NOT NULL)''')
+    conn.commit()
+    conn.close()
 
-# Custom styles
-st.markdown("""
-<style>
-body {
-    font-family: 'Helvetica', sans-serif;
-    margin: 0;
-    padding: 0;
-    line-height: 1.6;
-}
+# Function to create a new SQLite3 database and table for user accounts
+def create_user_database():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 username TEXT UNIQUE NOT NULL,
+                 password TEXT NOT NULL)''')
+    conn.commit()
+    conn.close()
 
-h1, h2, h3, h4, h5, h6, .sidebar-header, .section-header, .contact-header {
-    font-family: 'Helvetica';
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: #0e1117;
-}
+# Function to register a new user
+def register_user(username, password):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+    conn.commit()
+    conn.close()
 
-.section-header {
-    font-size: 26px;
-    background-color: #ff4b4b;
-    color: white;
-    padding: 1rem;
-    border-radius: 10px;
-    margin-bottom: 25px;
-    text-align: center;
-}
+# Function to authenticate a user
+def authenticate_user(username, password):
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    return user
 
-.detail-text {
-    padding: 0.25rem 1rem;
-    margin: 0.25rem 0;
-    border-left: 5px solid #ff4b4b;
-    background-color: #f2f2f2;
-    border-radius: 5px;
-}
+# Function to add a new post to the database
+def add_post(title, content):
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO posts (title, content) VALUES (?, ?)", (title, content))
+    conn.commit()
+    conn.close()
 
-.sidebar .sidebar-content {
-    background-color: #f0f8ff;
-    padding: 2rem;
-    border-radius: 10px;
-}
+# Function to edit an existing post in the database
+def edit_post(post_id, title, content):
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute("UPDATE posts SET title=?, content=? WHERE id=?", (title, content, post_id))
+    conn.commit()
+    conn.close()
 
-.contact-form {
-    background-color: #f0f8ff;
-    padding: 2rem;
-    border-radius: 10px;
-    margin-bottom: 25px;
-}
+# Function to delete a post from the database
+def delete_post(post_id):
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM posts WHERE id=?", (post_id,))
+    conn.commit()
+    conn.close()
 
-.contact-form input, .contact-form textarea {
-    margin-bottom: 1rem;
-}
+# Function to retrieve all posts from the database
+def get_all_posts():
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM posts")
+    posts = c.fetchall()
+    conn.close()
+    return posts
 
-.icon {
-    font-size: 1.5rem;
-    margin-right: 5px;
-    color: #ff4b4b;
-}
-</style>
-""", unsafe_allow_html=True)
+# Function to retrieve a single post by its ID from the database
+def get_post_by_id(post_id):
+    conn = sqlite3.connect('blog.db')
+    c = conn.cursor()
+    c.execute("SELECT * FROM posts WHERE id=?", (post_id,))
+    post = c.fetchone()
+    conn.close()
+    return post
 
-# Load FontAwesome for icons
-st.markdown("""
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" integrity="sha512-1PCqXZRn1zEe5m+gkxvf8VN4Q2xvgzw0KfXZ0Uf3lCzXCFvVXqrrUizwQfJjyApt8B/5lTh5QBE6P6VnqQZNug==" crossorigin="anonymous" />
-""", unsafe_allow_html=True)
+# Streamlit interface for user registration
+def registration():
+    st.title("User Registration")
+    username = st.text_input("Enter username:")
+    password = st.text_input("Enter password:", type="password")
+    if st.button("Register"):
+        if username and password:
+            create_user_database()
+            register_user(username, password)
+            st.success("Registration successful! Please login.")
+        else:
+            st.warning("Please enter both username and password.")
 
-# Main title with image
-col1, col2 = st.columns([1, 4])
-with col1:
-    st.image('https://media.licdn.com/dms/image/D5603AQGzch8kk3Cs1A/profile-displayphoto-shrink_200_200/0/1696458140217?e=1704931200&v=beta&t=IC1H7RGnR3fJFLhMeWRZq95-_VWJH7yh2HxGGUNh0dg', width=120)
-with col2:
-    st.title('Vengateswaran Arunachalam')
-    st.write('Santa Clara, CA 95051 ')
+# Streamlit interface for user login
+def login():
+    st.title("User Login")
+    username = st.text_input("Enter username:")
+    password = st.text_input("Enter password:", type="password")
+    if st.button("Login"):
+        if username and password:
+            user = authenticate_user(username, password)
+            if user:
+                st.success(f"Welcome, {username}!")
+                st.session_state.logged_in = True
+            else:
+                st.error("Invalid username or password.")
+        else:
+            st.warning("Please enter both username and password.")
 
-# Contact Information
-st.sidebar.markdown('<p class="contact-header"><i class="fas fa-envelope icon"></i>Contact Information</p>', unsafe_allow_html=True)
-st.sidebar.markdown("""
-Santa Clara, CA 95051  
- 
-[<i class="fab fa-linkedin icon"></i>LinkedIn](https://www.linkedin.com/in/vengateswaran-arunachalam/)  
-[<i class="fab fa-github icon"></i>GitHub](https://github.com/tagnev)  
-[<i class="fab fa-medium icon"></i>Medium](https://medium.com/@tagnev.vengat)
-""", unsafe_allow_html=True)
+# Streamlit interface for user logout
+def logout():
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.success("You have been logged out.")
 
-# Professional Summary
-st.markdown('<p class="section-header"><i class="fas fa-user-tie icon"></i>Professional Summary</p>', unsafe_allow_html=True)
-st.markdown("""
-<p class="detail-text">Accomplished Full Stack Data Engineer & Data Architect with 14+ years of expertise in BI solutions. 
-Proficient in Spark, Hadoop, Python, ReactJS, and the complete SDLC. Solid experience in cloud services 
-with AWS & GCP, database solutions both in the cloud and on-premise, and mastery of BI tools including 
-Tableau and MicroStrategy. Demonstrable skills in customer-focused open-source projects, content creation, 
-and community engagement. Excel at advanced database solutions, ETL processes, and enhancing data 
-infrastructure. Well-versed in partnering with diverse teams to foster data-driven strategies.</p>
-""", unsafe_allow_html=True)
+# Streamlit interface
+def main():
+    st.title("Simple Blog with Streamlit and SQLite3")
 
-# Skills
-st.markdown('<p class="section-header"><i class="fas fa-lightbulb icon"></i>Skills</p>', unsafe_allow_html=True)
-st.markdown("""
-<p class="detail-text">
-- Docker, DBT, Kubernetes, Git<br>
-- AWS & GCP architecture<br>
-- Python (Django, Flask, FastAPI)<br>
-- Shell scripting<br>
-- MySQL/Relational DB, Snowflake, Postgresql<br>
-- Hadoop, Tableau, MicroStrategy, Looker<br>
-- Cassandra, NoSQL, Pyspark, Airflow, Streamlit, openAI, Incorta
-</p>
-""", unsafe_allow_html=True)
+    # Create database if not exists
+    create_database()
 
-# Work History
-st.subheader('Work History')
+    # Sidebar
+    st.sidebar.header("Menu")
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
 
-st.markdown('**Data Architect/Senior Data Engineer**')
-st.write('Keysight Technologies – Santa Clara, CA (10/2021 - Current)')
-st.markdown("""
-- Managed the data migration process during a merger, which included transitioning data from legacy 
-systems of both companies into a single data warehouse.
-- Developed and executed migration scripts and ETL processes to ensure data integrity and consistency.
-- Collaborated with business stakeholders to prioritize data migration efforts, identifying critical data 
-elements and dependencies.
-- Orchestrated the decommissioning of legacy systems post-migration, reducing operational costs and 
-streamlining data management.
-""")
+    if st.session_state.logged_in:
+        menu_choice = st.sidebar.selectbox("Select operation", ("Add Post", "Edit Post", "Delete Post", "View Posts", "Logout"))
+    else:
+        menu_choice = st.sidebar.selectbox("Select operation", ("Login", "Register"))
 
-st.markdown('**Full Stack Data Engineer/Startup Founder**')
-st.write('Teckiy – Santa Clara, CA (01/2020 - 12/2022)')
-st.markdown("""
-- Collaborated with a cross-functional team to design, develop, and deploy a comprehensive end-to-end 
-data product leveraging Django as the backend framework and Google Cloud Platform (GCP) for cloud 
-infrastructure.
-- Designed and implemented a robust data pipeline on GCP, incorporating services like Google Cloud 
-Storage, BigQuery, and Cloud Dataflow for data ingestion, storage, transformation, and analysis.
-""")
+    if menu_choice == "Register":
+        registration()
+    elif menu_choice == "Login":
+        login()
+    elif menu_choice == "Logout":
+        logout()
+    elif menu_choice == "Add Post" and st.session_state.logged_in:
+        st.header("Add New Post")
+        title = st.text_input("Enter title:")
+        content = st.text_area("Enter content:")
+        if st.button("Add Post"):
+            if title and content:
+                add_post(title, content)
+                st.success("Post added successfully!")
+            else:
+                st.warning("Please enter both title and content.")
 
-st.markdown('**Data Engineer Lead**')
-st.write('Keysight Technologies – Santa Clara, CA (04/2018 - 10/2021)')
-st.markdown("""
-- Designed and implemented a data lake architecture on AWS S3, providing a scalable and cost-effective 
-solution for storing and processing massive volumes of structured and unstructured data.
-- Optimized data ingestion pipelines using AWS Glue to automate data cataloging, ETL, and 
-transformation processes, resulting in a 30% reduction in data processing time.
-""")
+    elif menu_choice == "Edit Post" and st.session_state.logged_in:
+        st.header("Edit Post")
+        post_id = st.number_input("Enter post ID to edit:")
+        if post_id:
+            post = get_post_by_id(post_id)
+            if post:
+                st.write(f"Current Title: {post[1]}")
+                new_title = st.text_input("Enter new title:", value=post[1])
+                st.write(f"Current Content: {post[2]}")
+                new_content = st.text_area("Enter new content:", value=post[2])
+                if st.button("Update Post"):
+                    edit_post(post_id, new_title, new_content)
+                    st.success("Post updated successfully!")
+            else:
+                st.warning("Post not found.")
 
-st.markdown('**Senior BI Developer**')
-st.write('Cognizant (Client: Keysight Technologies) – Santa Clara, CA (06/2014 - 04/2018)')
-st.markdown("""
-- Involved in Data Warehousing and worked extensively on RDBMS (Oracle, MS SQL) and ETL tools such 
-as Informatica, Shell Scripting, and Python.
-- Facilitated knowledge transfer sessions for new resources.
-""")
+    elif menu_choice == "Delete Post" and st.session_state.logged_in:
+        st.header("Delete Post")
+        post_id = st.number_input("Enter post ID to delete:")
+        if st.button("Delete Post"):
+            if post_id:
+                post = get_post_by_id(post_id)
+                if post:
+                    delete_post(post_id)
+                    st.success("Post deleted successfully!")
+                else:
+                    st.warning("Post not found.")
+            else:
+                st.warning("Please enter post ID.")
 
-# Education
-st.subheader('Education')
-st.write('Bachelor of Science: Information Technology, 05/2009')
-st.write('Mount Zion College of Engineering & Technology - Tamilnadu, India')
-st.write('Aggregate: 80%')
+    elif menu_choice == "View Posts":
+        st.header("All Posts")
+        posts = get_all_posts()
+        if posts:
+            for post in posts:
+                st.write(f"**Title:** {post[1]}")
+                st.write(f"**Content:** {post[2]}")
+                st.write("---")
+        else:
+            st.info("No posts found.")
 
-# Open Source Projects
-st.subheader('Open Source Projects')
-st.write('[Teckiy, Developer support platform](https://www.teckiy.com)')
-st.write("[HelpU, India's first customer experience sharing portal](https://www.helpu.in)")
-
-# Run this with `streamlit run resume_app.py` in your command line
+if __name__ == "__main__":
+    main()
